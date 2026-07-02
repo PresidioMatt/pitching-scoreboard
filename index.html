@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Presidio Little League — Pitching Challenge</title>
+<style>
+  :root {
+    --navy: #0B1220;
+    --white: #FFFFFF;
+    --gold: #B78E2A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--navy);
+    color: var(--white);
+    font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 3vh 4vw;
+    overflow: hidden;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid var(--gold);
+    padding-bottom: 1.4vh;
+    margin-bottom: 2.5vh;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 1.6vw;
+  }
+  .brand .logo { height: 7vw; width: auto; display: block; }
+  /* Fallback shown only if the logo image is missing */
+  .brand .logo-fallback {
+    display: none;
+    height: 7vw; width: 7vw;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--navy);
+    font-weight: 800;
+    font-size: 1.1vw;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+  .brand .title {
+    font-size: 2.8vw;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: var(--white);
+  }
+  .topbar .meta {
+    font-size: 1.3vw;
+    color: var(--gold);
+    text-align: right;
+  }
+  .topbar .meta .clock { color: var(--white); }
+
+  /* ---------- Board ---------- */
+  .board {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    animation: fade 0.6s ease;
+  }
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .board-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1.5vw;
+    margin-bottom: 2vh;
+  }
+  .board-header .age {
+    font-size: 3.6vw;
+    font-weight: 800;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .board-header .metric {
+    font-size: 1.6vw;
+    color: var(--white);
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .board-header .count {
+    margin-left: auto;
+    font-size: 1.3vw;
+    color: var(--gold);
+    opacity: 0.9;
+  }
+
+  /* Scroll viewport: header stays pinned, the player rows scroll inside this */
+  .table-viewport {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+  .table-scroller {
+    will-change: transform;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  thead th {
+    text-align: left;
+    font-size: 1.5vw;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gold);
+    border-bottom: 2px solid var(--gold);
+    padding: 1.2vh 1vw;
+  }
+  th.rank, td.rank { width: 8%; text-align: center; }
+  th.score, td.score { text-align: right; width: 24%; }
+  tbody td {
+    font-size: 2.2vw;
+    padding: 1.1vh 1vw;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  tbody tr:nth-child(1) td { color: var(--gold); font-weight: 700; }
+  tbody td.rank { color: var(--gold); font-weight: 700; }
+  tbody td.score { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Footer / progress ---------- */
+  .footer {
+    margin-top: 2vh;
+    padding-top: 1.6vh;
+    border-top: 3px solid var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 2vw;
+  }
+  .footer .progress-wrap { flex: 1; }
+  .dots { display: flex; gap: 0.6vw; flex-wrap: wrap; margin-bottom: 1vh; }
+  .dot {
+    width: 0.9vw;
+    height: 0.9vw;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+  }
+  .dot.active { background: var(--gold); }
+  .footer .status { font-size: 1.1vw; color: rgba(255,255,255,0.6); }
+
+  /* Call to action */
+  .cta {
+    display: flex;
+    align-items: center;
+    gap: 1.4vw;
+    background: rgba(183,142,42,0.12);
+    border: 2px solid var(--gold);
+    border-radius: 1vw;
+    padding: 1.2vh 1.6vw;
+  }
+  .cta .cta-text {
+    text-align: right;
+  }
+  .cta .cta-text .cta-line1 {
+    font-size: 1.1vw;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--gold);
+  }
+  .cta .cta-text .cta-line2 {
+    font-size: 2vw;
+    font-weight: 800;
+    color: var(--white);
+    line-height: 1.1;
+  }
+  .cta .qr {
+    width: 8vw;
+    height: 8vw;
+    background: var(--white);
+    padding: 0.5vw;
+    border-radius: 0.6vw;
+    display: block;
+  }
+  /* Placeholder shown until presidio-qr.png exists in the same folder */
+  .cta .qr-placeholder {
+    display: none;
+    box-sizing: border-box;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: repeating-linear-gradient(45deg, #f2f2f2, #f2f2f2 8px, #e6e6e6 8px, #e6e6e6 16px);
+    border: 2px dashed var(--gold);
+    color: var(--navy);
+    font-size: 0.85vw;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .cta .qr-placeholder span {
+    font-size: 0.7vw;
+    font-weight: 400;
+    opacity: 0.7;
+  }
+
+  .empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 2vw;
+    color: rgba(255,255,255,0.6);
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">
+      <img class="logo" src="presidio-logo.png" alt="Presidio Little League"
+           onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex';" />
+      <div class="logo-fallback" id="logoFallback">PRESIDIO<br>LITTLE&nbsp;LEAGUE</div>
+      <div class="title">Pitching Challenge</div>
+    </div>
+    <div class="meta">
+      <div id="board-progress">&nbsp;</div>
+      <div class="clock" id="clock">&nbsp;</div>
+    </div>
+  </div>
+
+  <div id="stage" class="board"></div>
+
+  <div class="footer">
+    <div class="progress-wrap">
+      <div class="dots" id="dots"></div>
+      <div class="status" id="status">Loading…</div>
+    </div>
+    <div class="cta">
+      <div class="cta-text">
+        <div class="cta-line1">Scan to</div>
+        <div class="cta-line2">Register for Fall<br>at Presidio</div>
+      </div>
+      <img class="qr" id="qr" src="presidio-qr.png" alt="Register for Fall at Presidio QR code"
+           onerror="this.style.display='none';document.getElementById('qrPlaceholder').style.display='flex';" />
+      <div class="qr qr-placeholder" id="qrPlaceholder">QR&nbsp;code<br>goes&nbsp;here<br><span>presidio-qr.png</span></div>
+    </div>
+  </div>
+
+<script>
+/* =========================================================================
+   CONFIG  —  the only part you need to edit
+   ========================================================================= */
+const CONFIG = {
+  // 1. In your Google Sheet:  File > Share > Publish to web
+  //    Choose the responses sheet, format = "Comma-separated values (.csv)"
+  //    Paste that published URL here (it ends in output=csv).
+  //    Leave BLANK ("") to run on the built-in SAMPLE data for testing.
+  csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTppbazjNtTpz2GUWS5rcxmbDqiR2qe0kZEjO36GI8kl9XBgOSd7ukli0JztAFZOw9ymvqtnFQ76tjH/pub?gid=196158987&single=true&output=csv",
+
+  rotateSeconds: 60,   // how long each board is shown
+  refreshSeconds: 60,  // how often to re-pull the sheet
+
+  // Auto-scroll for boards too long to fit on screen:
+  // hold at the top for this long, then slowly scroll to the bottom,
+  // arriving with a short pause before the board rotates.
+  // Longer lists cover more distance in the same window, so they scroll faster.
+  scrollPauseSeconds: 5,     // pause at the top before scrolling begins
+  scrollEndPauseSeconds: 2,  // rest at the bottom before rotating
+
+  // Column headers as they appear in row 1 of your sheet.
+  // Change these ONLY if your Google Form question titles differ.
+  columns: {
+    name:   "Name",
+    age:    "Age",
+    pockets:"Number of Pockets",
+    speed:  "Pitching Speed"
+  }
+};
+
+/* =========================================================================
+   AGE / BOARD DEFINITIONS
+   Order below = rotation order. metric: "pockets" or "speed".
+   match(age) decides which age rows belong to the board.
+   Ages 7 and 8 have BOTH a pockets and a speed board; a player lands on
+   whichever one matches the data they actually entered.
+   ========================================================================= */
+const BOARDS = [
+  { id: "0-4",    label: "Ages 4 & Under", metric: "pockets", match: a => a <= 4 },
+  { id: "5",      label: "Age 5",          metric: "pockets", match: a => a === 5 },
+  { id: "6",      label: "Age 6",          metric: "pockets", match: a => a === 6 },
+  { id: "7p",     label: "Age 7",          metric: "pockets", match: a => a === 7 },
+  { id: "7s",     label: "Age 7",          metric: "speed",   match: a => a === 7 },
+  { id: "8p",     label: "Age 8",          metric: "pockets", match: a => a === 8 },
+  { id: "8s",     label: "Age 8",          metric: "speed",   match: a => a === 8 },
+  { id: "9",      label: "Age 9",          metric: "speed",   match: a => a === 9 },
+  { id: "10",     label: "Age 10",         metric: "speed",   match: a => a === 10 },
+  { id: "11",     label: "Age 11",         metric: "speed",   match: a => a === 11 },
+  { id: "12",     label: "Age 12",         metric: "speed",   match: a => a === 12 },
+  { id: "13",     label: "Age 13",         metric: "speed",   match: a => a === 13 },
+  { id: "14",     label: "Age 14",         metric: "speed",   match: a => a === 14 },
+  { id: "15",     label: "Age 15",         metric: "speed",   match: a => a === 15 },
+  { id: "16",     label: "Age 16",         metric: "speed",   match: a => a === 16 },
+  { id: "17-19",  label: "Ages 17–19",     metric: "speed",   match: a => a >= 17 && a <= 19 },
+  { id: "20-29",  label: "Ages 20–29",     metric: "speed",   match: a => a >= 20 && a <= 29 },
+  { id: "30-39",  label: "Ages 30–39",     metric: "speed",   match: a => a >= 30 && a <= 39 },
+  { id: "40-49",  label: "Ages 40–49",     metric: "speed",   match: a => a >= 40 && a <= 49 },
+  { id: "50-59",  label: "Ages 50–59",     metric: "speed",   match: a => a >= 50 && a <= 59 },
+  { id: "60+",    label: "Ages 60 & Up",   metric: "speed",   match: a => a >= 60 }
+];
+
+/* =========================================================================
+   SAMPLE DATA  (used only when CONFIG.csvUrl is blank)
+   ========================================================================= */
+const SAMPLE_ROWS = [
+  { name:"Ava Ramirez",  age:4,  pockets:3 },
+  { name:"Liam Chen",    age:4,  pockets:2 },
+  { name:"Noah Abbott",  age:6,  pockets:4 },
+  { name:"Mia Delgado",  age:6,  pockets:4 },
+  { name:"Ethan Park",   age:6,  pockets:1 },
+  { name:"Zoe Ito",      age:7,  pockets:3 },   // 7 pockets board
+  { name:"Jack Nolan",   age:7,  speed:34 },    // 7 speed board
+  { name:"Ruby Vance",   age:8,  pockets:2 },   // 8 pockets board
+  { name:"Owen Brooks",  age:8,  speed:41 },    // 8 speed board
+  { name:"Kai Alvarez",  age:8,  speed:45 },
+  { name:"Sofia Wright", age:10, speed:55 },
+  { name:"Lucas Diaz",   age:10, speed:55 },
+  { name:"Maya Costa",   age:12, speed:62 },
+  { name:"Ben Foster",   age:14, speed:71 },
+  { name:"Grace Adler",  age:16, speed:65 },
+  { name:"Dan Murphy",   age:34, speed:82 },
+  { name:"Chris Blake",  age:41, speed:76 },
+  { name:"Pat Osei",     age:63, speed:60 }
+];
+
+/* =========================================================================
+   CSV PARSING  (handles quoted fields and commas inside quotes)
+   ========================================================================= */
+function parseCSV(text) {
+  const rows = [];
+  let field = "", row = [], inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ""; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+      else if (c === '\r') { /* ignore */ }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function rowsFromCsv(text) {
+  const grid = parseCSV(text).filter(r => r.some(c => c.trim() !== ""));
+  if (grid.length < 2) return [];
+  const header = grid[0].map(h => h.trim());
+  const idx = name => header.findIndex(h => h.toLowerCase() === name.toLowerCase());
+  const iName  = idx(CONFIG.columns.name);
+  const iAge   = idx(CONFIG.columns.age);
+  const iPock  = idx(CONFIG.columns.pockets);
+  const iSpeed = idx(CONFIG.columns.speed);
+
+  return grid.slice(1).map(r => {
+    const num = i => { const v = parseFloat((r[i] ?? "").trim()); return isNaN(v) ? null : v; };
+    return {
+      name:   (iName >= 0 ? r[iName] : "").trim(),
+      age:    iAge >= 0 ? num(iAge) : null,
+      pockets:iPock >= 0 ? num(iPock) : null,
+      speed:  iSpeed >= 0 ? num(iSpeed) : null
+    };
+  });
+}
+
+/* =========================================================================
+   BUILD BOARDS FROM ROWS
+   ========================================================================= */
+function toNum(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
+}
+
+function normalize(row) {
+  // Accept sample-object shape or csv shape uniformly.
+  return {
+    name: (row.name || "").trim(),
+    age: toNum(row.age),
+    pockets: toNum(row.pockets),
+    speed: toNum(row.speed)
+  };
+}
+
+function buildBoards(rawRows) {
+  const players = rawRows.map(normalize).filter(p => p.age != null);
+
+  return BOARDS.map(def => {
+    const list = players.filter(p => {
+      if (!def.match(p.age)) return false;
+      if (def.metric === "pockets") return p.pockets != null;
+      return p.speed != null;                       // speed board
+    }).map(p => ({
+      name: p.name,
+      score: def.metric === "pockets" ? p.pockets : p.speed
+    }));
+
+    list.sort((a, b) =>
+      (b.score - a.score) ||
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+    );
+
+    return { def, players: list };
+  }).filter(b => b.players.length > 0);   // hide empty boards
+}
+
+/* =========================================================================
+   RENDERING & ROTATION
+   ========================================================================= */
+let boards = [];
+let current = 0;
+let rotateTimer = null;
+
+function renderBoard(b, index, total) {
+  const stage = document.getElementById("stage");
+  const isPockets = b.def.metric === "pockets";
+  const scoreHead = isPockets ? "Pockets" : "MPH";
+
+  let rows = b.players.map((p, i) => `
+    <tr>
+      <td class="rank">${i + 1}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td class="score">${isPockets ? p.score : p.score.toFixed(0)}</td>
+    </tr>`).join("");
+
+  stage.innerHTML = `
+    <div class="board-header">
+      <div class="age">${b.def.label}</div>
+      <div class="metric">${isPockets ? "Target — Pockets" : "Speed — MPH"}</div>
+      <div class="count">${b.players.length} player${b.players.length === 1 ? "" : "s"}</div>
+    </div>
+    <table class="head-table">
+      <thead>
+        <tr>
+          <th class="rank">#</th>
+          <th>Name</th>
+          <th class="score">${scoreHead}</th>
+        </tr>
+      </thead>
+    </table>
+    <div class="table-viewport" id="viewport">
+      <div class="table-scroller" id="scroller">
+        <table><tbody>${rows}</tbody></table>
+      </div>
+    </div>`;
+
+  // restart CSS fade
+  stage.style.animation = "none";
+  void stage.offsetWidth;
+  stage.style.animation = "";
+
+  document.getElementById("board-progress").textContent =
+    `Board ${index + 1} of ${total}`;
+
+  const dots = document.getElementById("dots");
+  dots.innerHTML = boards.map((_, i) =>
+    `<div class="dot ${i === index ? "active" : ""}"></div>`).join("");
+
+  setupAutoScroll();
+}
+
+/* Long boards: hold at top, slowly scroll to the bottom, rest, then rotate.
+   Boards that fit on screen don't scroll at all. */
+let scrollRAF = null;
+function setupAutoScroll() {
+  cancelAnimationFrame(scrollRAF);
+  requestAnimationFrame(() => {
+    const vp = document.getElementById("viewport");
+    const sc = document.getElementById("scroller");
+    if (!vp || !sc) return;
+    sc.style.transform = "translateY(0)";
+
+    const maxScroll = sc.scrollHeight - vp.clientHeight;
+    if (maxScroll <= 2) return;   // everything fits — no scrolling needed
+
+    const total = CONFIG.rotateSeconds * 1000;
+    const pause = CONFIG.scrollPauseSeconds * 1000;
+    const endPause = CONFIG.scrollEndPauseSeconds * 1000;
+    const dur = Math.max(1000, total - pause - endPause);
+    const start = performance.now();
+
+    function frame(now) {
+      const e = now - start;
+      let y;
+      if (e <= pause) y = 0;
+      else if (e >= pause + dur) y = maxScroll;
+      else y = maxScroll * ((e - pause) / dur);
+      sc.style.transform = "translateY(" + (-y) + "px)";
+      if (e < pause + dur) scrollRAF = requestAnimationFrame(frame);
+    }
+    scrollRAF = requestAnimationFrame(frame);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+
+function showEmpty(msg) {
+  cancelAnimationFrame(scrollRAF);
+  document.getElementById("stage").innerHTML =
+    `<div class="empty">${msg}</div>`;
+  document.getElementById("dots").innerHTML = "";
+  document.getElementById("board-progress").textContent = "";
+}
+
+function rotate() {
+  if (!boards.length) { showEmpty("Waiting for the first results…"); return; }
+  if (current >= boards.length) current = 0;
+  renderBoard(boards[current], current, boards.length);
+  current++;
+}
+
+function startRotation() {
+  clearInterval(rotateTimer);
+  current = 0;
+  rotate();
+  rotateTimer = setInterval(rotate, CONFIG.rotateSeconds * 1000);
+}
+
+/* =========================================================================
+   DATA LOAD
+   ========================================================================= */
+async function loadData(initial) {
+  const status = document.getElementById("status");
+  try {
+    let rawRows;
+    if (CONFIG.csvUrl && CONFIG.csvUrl.trim()) {
+      const res = await fetch(CONFIG.csvUrl + (CONFIG.csvUrl.includes("?") ? "&" : "?") + "t=" + Date.now());
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      rawRows = rowsFromCsv(await res.text());
+      status.textContent = "Live data · updated " + new Date().toLocaleTimeString();
+    } else {
+      rawRows = SAMPLE_ROWS;
+      status.textContent = "SAMPLE DATA — add your published-sheet URL in CONFIG.csvUrl to go live";
+    }
+
+    const rebuilt = buildBoards(rawRows);
+    const changedCount = rebuilt.length !== boards.length;
+    boards = rebuilt;
+
+    if (initial || changedCount) startRotation();
+  } catch (err) {
+    status.textContent = "Could not load data (" + err.message + ") — retrying…";
+  }
+}
+
+/* =========================================================================
+   CLOCK
+   ========================================================================= */
+function tickClock() {
+  document.getElementById("clock").textContent =
+    new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+tickClock();
+setInterval(tickClock, 1000 * 15);
+loadData(true);
+setInterval(() => loadData(false), CONFIG.refreshSeconds * 1000);
+</script>
+</body>
+</html>
