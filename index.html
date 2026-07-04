@@ -202,6 +202,39 @@
     color: rgba(255,255,255,0.6);
   }
 
+  /* ---------- Leaderboard menu ---------- */
+  .menu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6vw;
+    margin-bottom: 2vh;
+  }
+  .menu .chip {
+    font-family: inherit;
+    font-size: 1.05vw;
+    color: var(--white);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(183,142,42,0.55);
+    border-radius: 999px;
+    padding: 0.7vh 1.1vw;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .menu .chip:hover { background: rgba(183,142,42,0.28); }
+  .menu .chip.active {
+    background: var(--gold);
+    color: var(--navy);
+    border-color: var(--gold);
+    font-weight: 700;
+  }
+  .menu .chip.auto { color: var(--gold); }
+  .menu .chip.auto.on {
+    background: var(--gold);
+    color: var(--navy);
+    font-weight: 700;
+  }
+
   /* ============================================================
      MOBILE / NARROW SCREENS
      On phones the vw-based type is too small and the footer
@@ -229,6 +262,17 @@
     .brand .logo-fallback { width: 52px; font-size: 9px; }
     .brand .title { font-size: 24px; }
     .topbar .meta { text-align: left; font-size: 13px; }
+
+    /* Menu: horizontal scroll strip instead of wrapping */
+    .menu {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 4px;
+    }
+    .menu .chip { font-size: 14px; padding: 8px 14px; }
 
     /* Board header */
     .board-header { flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; }
@@ -278,6 +322,8 @@
     </div>
   </div>
 
+  <nav id="menu" class="menu" aria-label="Leaderboards"></nav>
+
   <div id="stage" class="board"></div>
 
   <div class="footer">
@@ -304,7 +350,7 @@ const CONFIG = {
   //    Leave BLANK ("") to run on the built-in SAMPLE data for testing.
   csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTppbazjNtTpz2GUWS5rcxmbDqiR2qe0kZEjO36GI8kl9XBgOSd7ukli0JztAFZOw9ymvqtnFQ76tjH/pub?gid=196158987&single=true&output=csv",
 
-  rotateSeconds: 20,   // how long each board is shown
+  rotateSeconds: 10,   // how long each board is shown
   refreshSeconds: 60,  // how often to re-pull the sheet
 
   // Auto-scroll for boards too long to fit on screen:
@@ -500,6 +546,7 @@ function buildBoards(rawRows) {
 let boards = [];
 let current = 0;
 let rotateTimer = null;
+let userControlled = false;   // true once the user taps the menu or swipes
 
 function renderBoard(b, index, total) {
   const stage = document.getElementById("stage");
@@ -593,20 +640,87 @@ function showEmpty(msg) {
     `<div class="empty">${msg}</div>`;
   document.getElementById("dots").innerHTML = "";
   document.getElementById("board-progress").textContent = "";
+  const menu = document.getElementById("menu");
+  if (menu) menu.innerHTML = "";
+}
+
+/* Show a specific board by index (wraps around) and refresh the menu. */
+function showBoard(i) {
+  if (!boards.length) { showEmpty("Waiting for the first results…"); return; }
+  current = ((i % boards.length) + boards.length) % boards.length;
+  renderBoard(boards[current], current, boards.length);
+  renderMenu();
 }
 
 function rotate() {
   if (!boards.length) { showEmpty("Waiting for the first results…"); return; }
-  if (current >= boards.length) current = 0;
-  renderBoard(boards[current], current, boards.length);
-  current++;
+  showBoard(current + 1);
 }
 
+/* Start (or restart) automatic rotation from the first board. */
 function startRotation() {
   clearInterval(rotateTimer);
+  userControlled = false;
+  if (!boards.length) { showEmpty("Waiting for the first results…"); return; }
   current = 0;
-  rotate();
+  showBoard(current);
   rotateTimer = setInterval(rotate, CONFIG.rotateSeconds * 1000);
+}
+
+/* Stop automatic rotation — triggered by any manual navigation. */
+function stopRotation() {
+  clearInterval(rotateTimer);
+  rotateTimer = null;
+  userControlled = true;
+  renderMenu();
+}
+
+/* -------- Leaderboard menu (only active boards) -------- */
+function menuLabel(b, i) {
+  // Disambiguate boards that share a label (e.g. Age 7 pockets vs speed).
+  const dupe = boards.some((o, j) => j !== i && o.def.label === b.def.label);
+  const tag = b.def.metric === "pockets" ? "Pockets" : "MPH";
+  return dupe ? b.def.label + " · " + tag : b.def.label;
+}
+
+function renderMenu() {
+  const menu = document.getElementById("menu");
+  if (!menu) return;
+  if (!boards.length) { menu.innerHTML = ""; return; }
+  const auto =
+    `<button class="chip auto ${userControlled ? "" : "on"}" data-act="auto">` +
+    `${userControlled ? "▶ Auto" : "● Auto"}</button>`;
+  const chips = boards.map((b, i) =>
+    `<button class="chip ${i === current ? "active" : ""}" data-i="${i}">` +
+    `${escapeHtml(menuLabel(b, i))}</button>`
+  ).join("");
+  menu.innerHTML = auto + chips;
+}
+
+function onMenuClick(e) {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  if (btn.dataset.act === "auto") { startRotation(); return; }  // resume
+  stopRotation();
+  showBoard(Number(btn.dataset.i));
+}
+
+/* -------- Swipe navigation (mobile) -------- */
+let touchX = null, touchY = null;
+function onTouchStart(e) {
+  const t = e.changedTouches[0];
+  touchX = t.clientX; touchY = t.clientY;
+}
+function onTouchEnd(e) {
+  if (touchX == null) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchX, dy = t.clientY - touchY;
+  touchX = touchY = null;
+  // Horizontal swipe only (ignore vertical scrolls)
+  if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    stopRotation();
+    showBoard(current + (dx < 0 ? 1 : -1));   // swipe left = next
+  }
 }
 
 /* =========================================================================
@@ -628,9 +742,21 @@ async function loadData(initial) {
 
     const rebuilt = buildBoards(rawRows);
     const changedCount = rebuilt.length !== boards.length;
+    const prevId = boards[current] && boards[current].def.id;
     boards = rebuilt;
 
-    if (initial || changedCount) startRotation();
+    if (!boards.length) { showEmpty("Waiting for the first results…"); return; }
+
+    if (userControlled) {
+      // User is browsing manually — keep them on their board, just refresh it.
+      let idx = boards.findIndex(b => b.def.id === prevId);
+      if (idx < 0) idx = Math.min(current, boards.length - 1);
+      showBoard(idx);
+    } else if (initial || changedCount) {
+      startRotation();
+    } else {
+      renderMenu();   // rotation keeps running; next tick shows fresh data
+    }
   } catch (err) {
     status.textContent = "Could not load data (" + err.message + ") — retrying…";
   }
@@ -647,6 +773,12 @@ function tickClock() {
 /* =========================================================================
    INIT
    ========================================================================= */
+// Wire up the menu and swipe navigation (elements persist across renders)
+document.getElementById("menu").addEventListener("click", onMenuClick);
+const stageEl = document.getElementById("stage");
+stageEl.addEventListener("touchstart", onTouchStart, { passive: true });
+stageEl.addEventListener("touchend", onTouchEnd, { passive: true });
+
 tickClock();
 setInterval(tickClock, 1000 * 15);
 loadData(true);
