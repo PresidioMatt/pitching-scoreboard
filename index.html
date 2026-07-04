@@ -163,7 +163,7 @@
   .dot.active { background: var(--gold); }
   .footer .status { font-size: 1.1vw; color: rgba(255,255,255,0.6); }
 
-  /* Call to action */
+  /* Call to action — links to the league site */
   .cta {
     display: flex;
     align-items: center;
@@ -171,50 +171,25 @@
     background: rgba(183,142,42,0.12);
     border: 2px solid var(--gold);
     border-radius: 1vw;
-    padding: 1.2vh 1.6vw;
+    padding: 1.4vh 2vw;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s ease;
   }
+  .cta:hover { background: rgba(183,142,42,0.24); }
   .cta .cta-text {
     text-align: right;
   }
   .cta .cta-text .cta-line1 {
-    font-size: 1.1vw;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--gold);
-  }
-  .cta .cta-text .cta-line2 {
-    font-size: 2vw;
+    font-size: 1.3vw;
     font-weight: 800;
     color: var(--white);
-    line-height: 1.1;
+    line-height: 1.15;
   }
-  .cta .qr {
-    width: 8vw;
-    height: 8vw;
-    background: var(--white);
-    padding: 0.5vw;
-    border-radius: 0.6vw;
-    display: block;
-  }
-  /* Placeholder shown until presidio-qr.png exists in the same folder */
-  .cta .qr-placeholder {
-    display: none;
-    box-sizing: border-box;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    background: repeating-linear-gradient(45deg, #f2f2f2, #f2f2f2 8px, #e6e6e6 8px, #e6e6e6 16px);
-    border: 2px dashed var(--gold);
-    color: var(--navy);
-    font-size: 0.85vw;
-    font-weight: 700;
-    line-height: 1.5;
-  }
-  .cta .qr-placeholder span {
-    font-size: 0.7vw;
-    font-weight: 400;
-    opacity: 0.7;
+  .cta .cta-text .cta-line2 {
+    font-size: 1.1vw;
+    letter-spacing: 0.06em;
+    color: var(--gold);
   }
 
   .empty {
@@ -281,13 +256,11 @@
     .cta {
       justify-content: center;
       border-radius: 12px;
-      padding: 12px 16px;
+      padding: 14px 16px;
     }
-    .cta .cta-text .cta-line1 { font-size: 12px; }
-    .cta .cta-text .cta-line2 { font-size: 18px; }
-    .cta .qr, .cta .qr-placeholder { width: 88px; height: 88px; padding: 6px; }
-    .cta .qr-placeholder { font-size: 10px; border-radius: 8px; }
-    .cta .qr-placeholder span { font-size: 8px; }
+    .cta .cta-text { text-align: center; }
+    .cta .cta-text .cta-line1 { font-size: 18px; }
+    .cta .cta-text .cta-line2 { font-size: 13px; }
   }
 </style>
 </head>
@@ -312,15 +285,12 @@
       <div class="dots" id="dots"></div>
       <div class="status" id="status">Loading…</div>
     </div>
-    <div class="cta">
+    <a class="cta" href="https://www.presidiolittleleague.com/" target="_blank" rel="noopener">
       <div class="cta-text">
-        <div class="cta-line1">Scan to</div>
-        <div class="cta-line2">Register for Fall<br>at Presidio</div>
+        <div class="cta-line1">Register for Fall at Presidio</div>
+        <div class="cta-line2">presidiolittleleague.com</div>
       </div>
-      <img class="qr" id="qr" src="presidio-qr.png" alt="Register for Fall at Presidio QR code"
-           onerror="this.style.display='none';document.getElementById('qrPlaceholder').style.display='flex';" />
-      <div class="qr qr-placeholder" id="qrPlaceholder">QR&nbsp;code<br>goes&nbsp;here<br><span>presidio-qr.png</span></div>
-    </div>
+    </a>
   </div>
 
 <script>
@@ -347,6 +317,7 @@ const CONFIG = {
   // Column headers as they appear in row 1 of your sheet.
   // Change these ONLY if your Google Form question titles differ.
   columns: {
+    timestamp:"Timestamp",   // used to break ties between duplicate entries
     name:   "Name",
     age:    "Age",
     pockets:"Number of Pockets",
@@ -439,6 +410,7 @@ function rowsFromCsv(text) {
   if (grid.length < 2) return [];
   const header = grid[0].map(h => h.trim());
   const idx = name => header.findIndex(h => h.toLowerCase() === name.toLowerCase());
+  const iTs    = idx(CONFIG.columns.timestamp);
   const iName  = idx(CONFIG.columns.name);
   const iAge   = idx(CONFIG.columns.age);
   const iPock  = idx(CONFIG.columns.pockets);
@@ -447,6 +419,7 @@ function rowsFromCsv(text) {
   return grid.slice(1).map(r => {
     const num = i => { const v = parseFloat((r[i] ?? "").trim()); return isNaN(v) ? null : v; };
     return {
+      ts:     iTs >= 0 ? Date.parse((r[iTs] ?? "").trim()) : NaN,
       name:   (iName >= 0 ? r[iName] : "").trim(),
       age:    iAge >= 0 ? num(iAge) : null,
       pockets:iPock >= 0 ? num(iPock) : null,
@@ -467,6 +440,7 @@ function toNum(v) {
 function normalize(row) {
   // Accept sample-object shape or csv shape uniformly.
   return {
+    ts: typeof row.ts === "number" ? row.ts : NaN,
     name: (row.name || "").trim(),
     age: toNum(row.age),
     pockets: toNum(row.pockets),
@@ -474,19 +448,43 @@ function normalize(row) {
   };
 }
 
+// Recency of an entry: real timestamp if we have one, otherwise its
+// position in the sheet (later rows are more recent).
+function recency(c) { return Number.isFinite(c.ts) ? c.ts : c.order; }
+
 function buildBoards(rawRows) {
-  const players = rawRows.map(normalize).filter(p => p.age != null);
+  const players = rawRows.map((r, i) => {
+    const n = normalize(r);
+    n.order = i;                       // fallback recency = sheet order
+    return n;
+  }).filter(p => p.age != null);
 
   return BOARDS.map(def => {
-    const list = players.filter(p => {
+    const cands = players.filter(p => {
       if (!def.match(p.age)) return false;
       if (def.metric === "pockets") return p.pockets != null;
       return p.speed != null;                       // speed board
     }).map(p => ({
       name: p.name,
-      score: def.metric === "pockets" ? p.pockets : p.speed
+      score: def.metric === "pockets" ? p.pockets : p.speed,
+      ts: p.ts,
+      order: p.order
     }));
 
+    // Dedupe by name: keep each player's BEST score.
+    // If a player has duplicate entries with the same score, keep the most recent.
+    const byName = new Map();
+    for (const c of cands) {
+      const key = c.name.toLowerCase();
+      const cur = byName.get(key);
+      if (!cur ||
+          c.score > cur.score ||
+          (c.score === cur.score && recency(c) > recency(cur))) {
+        byName.set(key, c);
+      }
+    }
+
+    const list = [...byName.values()];
     list.sort((a, b) =>
       (b.score - a.score) ||
       a.name.toLowerCase().localeCompare(b.name.toLowerCase())
